@@ -5,6 +5,9 @@ local function object()
     function o:RegisterEvent() end
     function o:CreateTexture() return object() end
     function o:CreateFontString() return object() end
+    function o:GetFrameLevel() return 1 end
+    function o:SetDrawSwipe(v) self.drawSwipe=v end
+    function o:SetCountdownFont(v) self.countdownFont=v end
     function o:Clear() self.durationObject=nil;self.cooldownStart=nil;self.cooldownDuration=nil end
     function o:SetCooldownFromDurationObject(value) self.durationObject=value end
     function o:SetCooldown(start,duration) self.cooldownStart=start;self.cooldownDuration=duration end
@@ -26,7 +29,7 @@ local function object()
     function o:SetChecked(v) self.checked=v end
     function o:GetChecked() return self.checked end
     function o:SetValue(v) self.value=v;if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self,v) end end
-    for _,k in ipairs({'SetDrawEdge','SetDrawBling','SetHideCountdownNumbers','SetScrollChild','EnableMouse','SetBackdrop','SetBackdropColor','SetBackdropBorderColor','SetDesaturated','SetAlpha','SetTexCoord','SetFrameStrata','SetMovable','SetClampedToScreen','RegisterForDrag','StartMoving','StopMovingOrSizing','SetJustifyH','SetMinMaxValues','SetValueStep','SetObeyStepOnDrag'}) do o[k]=function() end end
+    for _,k in ipairs({'SetFrameLevel','SetSwipeColor','SetDrawEdge','SetDrawBling','SetHideCountdownNumbers','SetScrollChild','EnableMouse','SetBackdrop','SetBackdropColor','SetBackdropBorderColor','SetDesaturated','SetAlpha','SetTexCoord','SetFrameStrata','SetMovable','SetClampedToScreen','RegisterForDrag','StartMoving','StopMovingOrSizing','SetJustifyH','SetMinMaxValues','SetValueStep','SetObeyStepOnDrag'}) do o[k]=function() end end
     return o
 end
 UIParent=object(); UIParent.x=960;UIParent.y=540
@@ -152,7 +155,7 @@ assert(spellCalls[#spellCalls][1]==1020 and spellCalls[#spellCalls][2]==true,'ov
 A.db.cooldowns=false;A.Apply();assert(not overlay.left.cooldown.shown and not overlay.left.cooldown.durationObject,'toggle clears cooldown')
 A.db.cooldowns=true;A.Apply()
 C_Spell.GetSpellChargeDuration=function() return recharge end
-A.UpdateCooldowns();assert(overlay.left.cooldown.durationObject==recharge,'charge recharge timer')
+A.UpdateCooldowns();assert(overlay.left.chargeCooldown.durationObject==recharge and overlay.left.cooldown.durationObject==duration,'charge and ordinary timers independent')
 C_Spell.GetSpellChargeDuration=function() return nil end
 local replacement={};duration=replacement
 A.UpdateCooldowns();assert(overlay.left.cooldown.durationObject==replacement,'same modifier refreshes cooldown')
@@ -179,3 +182,22 @@ actions={};A.ReadProfile();A.Update()
 assert(not overlay.left.shown and not overlay.right.shown,'both empty slots hidden')
 ctrl=false;A.Update();assert(not overlay.shown,'modifier release still hides overlay')
 print('PASS: cooldown default/toggle, spell override, ignore GCD, opaque durations, recharge, refresh, macro, item, smart actions, error cleanup, empty-slot hiding')
+
+-- An empty charge duration must never swallow a real spell cooldown.
+ctrl=true;shift=false;alt=false;SlashCmdList.CLICKTOCASTOVERLAY('blizzard')
+C_Spell.GetSpellChargeDuration=function() return {} end
+A.UpdateCooldowns()
+assert(overlay.left.cooldown.durationObject==replacement,'empty recharge object does not replace ordinary cooldown')
+C_Spell.GetSpellChargeDuration=function() error('charge API rejected noncharge spell') end
+A.UpdateCooldowns()
+assert(overlay.left.cooldown.durationObject==replacement and not overlay.left.chargeCooldown.shown,'charge error preserves main cooldown')
+C_Spell.GetSpellCooldown=function() return {startTime=10,duration=120,isOnGCD=false} end
+A.UpdateCooldowns()
+assert(overlay.left.cooldown.cooldownStart==10 and overlay.left.cooldown.cooldownDuration==120 and overlay.left.cooldown.shown,'public numeric cooldown fallback')
+C_Spell.GetSpellCooldown=function() return {startTime=secret,duration=secret,isOnGCD=secret} end
+A.UpdateCooldowns()
+assert(overlay.left.cooldown.durationObject==replacement,'restricted numeric values use opaque object')
+C_Spell.GetSpellCooldown=function() return {startTime=10,duration=1.5,isOnGCD=true} end
+A.UpdateCooldowns();assert(not overlay.left.cooldown.shown,'public GCD excluded')
+assert(overlay.left.cooldown.drawSwipe==true and overlay.left.cooldown.countdownFont=='GameFontNormalLarge','explicit visible swipe and font')
+print('PASS: zero recharge isolation, independent charge errors, numeric and secret paths, visible swipe/font')

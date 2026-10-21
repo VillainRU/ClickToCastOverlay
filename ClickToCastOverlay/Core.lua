@@ -149,24 +149,87 @@ local function CooldownAction(entry)
     return spell, item
 end
 
-local function UpdateCooldown(icon)
-    local cd = icon.cooldown
-    if not db.cooldowns or not icon.entry or not icon:IsShown() then cd:Clear(); cd:Hide(); return end
-    local ok = pcall(function()
-        local spell, item = CooldownAction(icon.entry)
-        if spell and C_Spell.GetSpellCooldownDuration and cd.SetCooldownFromDurationObject then
-            -- Pass opaque durations straight to the widget: no secret arithmetic
-            -- or comparisons in combat. Ignore the global cooldown.
-            local duration = C_Spell.GetSpellChargeDuration and C_Spell.GetSpellChargeDuration(spell)
-                or C_Spell.GetSpellCooldownDuration(spell, true)
-            if duration then cd:Show(); cd:SetCooldownFromDurationObject(duration); return end
-        elseif item and C_Item and C_Item.GetItemCooldown then
-            local start, duration = C_Item.GetItemCooldown(item)
-            cd:Show(); cd:SetCooldown(start, duration); return
+-- Empty charge duration objects must not replace an ordinary spell cooldown.
+-- Use independent widgets so either timer can be zero without erasing the other.
+local function ClearTimer(cd)
+    cd:Clear()
+    cd:Hide()
+end
+
+local function SetSpellTimer(cd, spell, charges)
+    local infoAPI = charges and C_Spell.GetSpellCharges or C_Spell.GetSpellCooldown
+    local durationAPI = charges and C_Spell.GetSpellChargeDuration or C_Spell.GetSpellCooldownDuration
+    -- Public numeric values are supported on both clients. Never compare or do
+    -- arithmetic on restricted values; use the opaque duration API in that case.
+    if infoAPI then
+        local ok, info = pcall(infoAPI, spell)
+        if ok and info then
+            local start = charges and info.cooldownStartTime or info.startTime
+            local duration = charges and info.cooldownDuration or info.duration
+            if Public(start) and Public(duration) and type(start) == "number" and type(duration) == "number"
+                and (charges or Public(info.isOnGCD)) then
+                if not charges and info.isOnGCD then ClearTimer(cd); return "gcd" end
+                if start > 0 and duration > 0 then
+                    cd:SetCooldown(start, duration)
+                    cd:Show()
+                    return "numeric"
+                end
+                ClearTimer(cd)
+                return "ready"
+            end
         end
-        cd:Clear(); cd:Hide()
+    end
+    if durationAPI and cd.SetCooldownFromDurationObject then
+        local duration
+        if charges then duration = durationAPI(spell)
+        else duration = durationAPI(spell, true) end
+        if duration then
+            cd:SetCooldownFromDurationObject(duration)
+            cd:Show()
+            return "duration"
+        end
+    end
+    ClearTimer(cd)
+    return "no timer"
+end
+
+local function UpdateCooldown(icon)
+    if not db.cooldowns or not icon.entry or not icon:IsShown() then
+        ClearTimer(icon.cooldown); ClearTimer(icon.chargeCooldown); return
+    end
+    icon.cooldownError = nil
+    local ok, err = pcall(function()
+        local spell, item = CooldownAction(icon.entry)
+        icon.cooldownAction = spell or item
+        if spell then
+            icon.cooldownStatus = SetSpellTimer(icon.cooldown, spell, false)
+            -- A charge API failure must not clear a valid ordinary cooldown.
+            local chargeOK, chargeError = pcall(SetSpellTimer, icon.chargeCooldown, spell, true)
+            if not chargeOK then ClearTimer(icon.chargeCooldown); icon.cooldownError = tostring(chargeError) end
+        elseif item and C_Item and C_Item.GetItemCooldown then
+            ClearTimer(icon.chargeCooldown)
+            local start, duration = C_Item.GetItemCooldown(item)
+            icon.cooldown:SetCooldown(start, duration)
+            icon.cooldown:Show()
+            icon.cooldownStatus = "item"
+        else
+            ClearTimer(icon.cooldown); ClearTimer(icon.chargeCooldown)
+            icon.cooldownStatus = "unresolved action"
+        end
     end)
-    if not ok then cd:Clear(); cd:Hide() end
+    if not ok then
+        icon.cooldownError = tostring(err)
+        ClearTimer(icon.cooldown); ClearTimer(icon.chargeCooldown)
+    end
+end
+
+function A.CooldownDebug()
+    Say("1.2.1 / " .. db.source .. " / cooldowns=" .. tostring(db.cooldowns))
+    for _, name in ipairs({"left", "right"}) do
+        local icon = overlay[name]
+        Say(name .. ": action=" .. tostring(icon.cooldownAction) .. ", path=" .. tostring(icon.cooldownStatus)
+            .. ", error=" .. tostring(icon.cooldownError))
+    end
 end
 
 function A.UpdateCooldowns()
@@ -185,14 +248,22 @@ local function MakeIcon(parent, label)
     frame.texture:SetPoint("TOPLEFT", 2, -2)
     frame.texture:SetPoint("BOTTOMRIGHT", -2, 2)
     frame.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-    frame.cooldown = CreateFrame("Cooldown", nil, frame, "CooldownFrameTemplate")
-    frame.cooldown:SetPoint("TOPLEFT", 2, -2)
-    frame.cooldown:SetPoint("BOTTOMRIGHT", -2, 2)
-    frame.cooldown:EnableMouse(false)
-    frame.cooldown:SetDrawEdge(false)
-    frame.cooldown:SetDrawBling(false)
-    frame.cooldown:SetHideCountdownNumbers(false)
-    frame.cooldown:Hide()
+    for _, key in ipairs({ "cooldown", "chargeCooldown" }) do
+        local cd = CreateFrame("Cooldown", nil, frame, "CooldownFrameTemplate")
+        frame[key] = cd
+        cd:ClearAllPoints()
+        cd:SetPoint("TOPLEFT", 2, -2)
+        cd:SetPoint("BOTTOMRIGHT", -2, 2)
+        cd:SetFrameLevel(frame:GetFrameLevel() + (key == "cooldown" and 1 or 2))
+        cd:EnableMouse(false)
+        cd:SetDrawSwipe(true)
+        cd:SetSwipeColor(0, 0, 0, 0.7)
+        cd:SetDrawEdge(false)
+        cd:SetDrawBling(false)
+        cd:SetHideCountdownNumbers(false)
+        cd:SetCountdownFont("GameFontNormalLarge")
+        cd:Hide()
+    end
     frame.empty = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     frame.empty:SetPoint("CENTER")
     frame.empty:SetText("—")

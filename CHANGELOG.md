@@ -1,3 +1,12 @@
+# 1.2.1 — Cooldown display fixes
+
+- Keep spell cooldown and charge recharge on independent widgets: empty recharge objects or charge API errors no longer clear the spell timer.
+- Use public numeric cooldown data when available, with opaque duration objects for restricted combat values. Continue excluding the global cooldown.
+- Explicitly set swipe visibility, colour, frame level and countdown font on overlay icons.
+- Add `/ctco debug` to report the last resolved action, timer path and cooldown error.
+
+Automated regression checks pass for Retail and Forever. User-reported missing cooldown is under investigation; in-game confirmation is pending.
+
 # 1.2.0 — Cooldowns and empty-slot display
 
 - Add Show cooldowns on icons to settings, enabled by default.

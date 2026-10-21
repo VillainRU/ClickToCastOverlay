@@ -3,7 +3,7 @@
 ## Notes: Displays Blizzard or EllesmereUI left/right click-cast bindings while holding a modifier.
 ## Notes-ruRU: Иконки назначений Click Casting при удержании Ctrl, Shift или Alt.
 ## Author: VillainRU
-## Version: 1.2.0
+## Version: 1.2.1
 ## X-License: MIT
 ## SavedVariables: ClickToCastOverlayDB
 Core.lua

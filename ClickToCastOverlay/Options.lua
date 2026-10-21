@@ -139,7 +139,8 @@ SlashCmdList.CLICKTOCASTOVERLAY = function(msg)
     local db = A.db
     if not db then return end
     msg = (msg or ""):lower():match("^%s*(.-)%s*$")
-    if msg == "lock" then db.locked = true; A.Apply()
+    if msg == "debug" then A.CooldownDebug()
+    elseif msg == "lock" then db.locked = true; A.Apply()
     elseif msg == "unlock" then db.mode = "window"; db.locked = false; A.Apply()
     elseif msg == "test" then A.TogglePreview()
     elseif msg == "blizzard" or msg == "ellesmere" then db.source = msg; A.Apply()
