@@ -252,3 +252,17 @@ if not overlay.left.sample then A.TogglePreview() end
 assert(overlay.left.sample and overlay.left.previewText.shown,'style preview has example countdown')
 A.db.timerText=false;A.Apply();assert(not overlay.left.previewText.shown,'countdown number toggle hides preview text')
 print('PASS: text fonts, sizes, outlines, nine anchors, offsets, colours/cancel, SharedMedia fallback and preview')
+
+local panel
+for _, frame in ipairs(frames) do if frame.scripts.OnShow and frame.scripts.OnHide then panel=frame end end
+assert(panel,'settings panel has close handler')
+A.db.locked=true;ctrl=false;shift=false;alt=false;A.StopPreview();A.TogglePreview()
+assert(overlay.shown,'preview visible before closing settings')
+panel.scripts.OnHide(panel)
+assert(not overlay.shown,'closing settings hides explicit preview')
+panel.scripts.OnShow(panel);A.Update()
+assert(not overlay.shown,'reopening settings does not restore preview')
+ctrl=true;A.TogglePreview();panel.scripts.OnHide(panel)
+assert(overlay.shown and not overlay.left.sample,'closing settings preserves real modifier icons')
+ctrl=false;A.Update();assert(not overlay.shown,'releasing modifier after settings close hides overlay')
+print('PASS: settings close clears preview, reopen stays hidden, held modifier preserves real bindings')

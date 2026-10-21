@@ -1,3 +1,9 @@
+# 1.3.1 — Stop preview when settings close
+
+- Disable explicit preview when leaving or closing the addon settings panel.
+- Keep real Ctrl / Shift / Alt bindings visible while a modifier is held.
+- Reopening settings no longer resumes a stale preview.
+
 # 1.3.0 — Text appearance
 
 - Add independent appearance controls for cooldown numbers and LMB/RMB labels: font, size, outline, colour, nine anchor points and X/Y offsets.

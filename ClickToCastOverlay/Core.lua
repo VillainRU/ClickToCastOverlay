@@ -271,7 +271,7 @@ local function UpdateCooldown(icon)
 end
 
 function A.CooldownDebug()
-    Say("1.3.0 / " .. db.source .. " / cooldowns=" .. tostring(db.cooldowns))
+    Say("1.3.1 / " .. db.source .. " / cooldowns=" .. tostring(db.cooldowns))
     for _, name in ipairs({"left", "right"}) do
         local icon = overlay[name]
         Say(name .. ": action=" .. tostring(icon.cooldownAction) .. ", path=" .. tostring(icon.cooldownStatus)
@@ -410,6 +410,11 @@ function A.Apply()
     ReadProfile()
     mover:SetShown(db.enabled and db.mode == "window" and not db.locked)
     activeKey = nil
+    A.Update()
+end
+
+function A.StopPreview()
+    preview = false
     A.Update()
 end
 

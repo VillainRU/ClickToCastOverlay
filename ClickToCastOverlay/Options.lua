@@ -183,6 +183,7 @@ function A.CreateOptions()
     note:SetJustifyH("LEFT")
     note:SetText(L("Пустое назначение: иконка скрыта. Макрос: сохранённая иконка.\nКулдаун: заклинания, предметы и распознанные WoW макросы.\nУмные действия EllesmereUI: только иконка, без кулдауна.\nНесколько модификаторов: оверлей скрыт. /ctco — настройки.\nEllesmereUI: UnitFrames / RaidFrames; hover-only исключены.",
         "Empty binding: icon hidden. Macro: its saved icon.\nCooldowns: spells, items and macros resolved by WoW.\nEllesmereUI smart actions: icon only, no cooldown.\nMultiple modifiers: overlay hidden. /ctco opens settings.\nEllesmereUI: UnitFrames / RaidFrames; hover-only excluded."))
+    panel:SetScript("OnHide", A.StopPreview)
     panel:SetScript("OnShow", function()
         for _, refresh in ipairs(refreshers) do refresh() end
         A.ReadProfile()
