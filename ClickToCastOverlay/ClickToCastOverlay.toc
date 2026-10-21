@@ -1,0 +1,10 @@
+## Interface: 120105
+## Title: Click to cast overlay
+## Notes: Displays Blizzard or EllesmereUI left/right click-cast bindings while holding a modifier.
+## Notes-ruRU: Иконки назначений Click Casting при удержании Ctrl, Shift или Alt.
+## Author: VillainRU
+## Version: 1.2.0
+## X-License: MIT
+## SavedVariables: ClickToCastOverlayDB
+Core.lua
+Options.lua
