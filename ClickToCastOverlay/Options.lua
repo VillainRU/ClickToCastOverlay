@@ -10,7 +10,7 @@ function A.CreateOptions()
     scroll:SetPoint("TOPLEFT", 0, 0)
     scroll:SetPoint("BOTTOMRIGHT", -28, 8)
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(610, 850)
+    content:SetSize(610, 1600)
     scroll:SetScrollChild(content)
     local heading = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     heading:SetPoint("TOPLEFT", 16, -16)
@@ -81,10 +81,10 @@ function A.CreateOptions()
         end)
         refreshers[#refreshers + 1] = function() b:SetChecked(db.mode == value) end
     end
-    local function Slider(label, key, lo, hi, y)
+    local function Slider(label, key, lo, hi, y, x)
         local s = CreateFrame("Slider", nil, content, "OptionsSliderTemplate")
-        s:SetPoint("TOPLEFT", 28, y)
-        s:SetWidth(290)
+        s:SetPoint("TOPLEFT", x or 28, y)
+        s:SetWidth(x and 230 or 290)
         s:SetMinMaxValues(lo, hi)
         s:SetValueStep(1)
         s:SetObeyStepOnDrag(true)
@@ -105,10 +105,69 @@ function A.CreateOptions()
     Slider(L("Промежуток", "Icon gap"), "gap", 0, 30, -548)
     Slider(L("Смещение X: курсор / фрейм", "Offset X: cursor / frame"), "offsetX", -150, 150, -606)
     Slider(L("Смещение Y: курсор / фрейм", "Offset Y: cursor / frame"), "offsetY", -150, 150, -664)
+    local function Dropdown(label, key, y, choices)
+        local caption = content:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        caption:SetPoint("TOPLEFT", 20, y)
+        caption:SetText(label)
+        local menu = CreateFrame("DropdownButton", nil, content, "WowStyle1DropdownTemplate")
+        menu:SetPoint("TOPLEFT", 20, y - 20)
+        menu:SetWidth(230)
+        menu:SetupMenu(function(_, root)
+            root:SetScrollMode(260)
+            for _, item in ipairs(choices()) do
+                local value = item[1]
+                root:CreateRadio(item[2], function() return db[key] == value end, function()
+                    db[key] = value
+                    A.Apply()
+                end)
+            end
+        end)
+        refreshers[#refreshers + 1] = function() menu:GenerateMenu() end
+    end
+    local anchorOptions = {
+        {"CENTER", L("По центру", "Center")}, {"TOP", L("Сверху", "Top")},
+        {"BOTTOM", L("Снизу", "Bottom")}, {"LEFT", L("Слева", "Left")}, {"RIGHT", L("Справа", "Right")},
+        {"TOPLEFT", L("Сверху слева", "Top left")}, {"TOPRIGHT", L("Сверху справа", "Top right")},
+        {"BOTTOMLEFT", L("Снизу слева", "Bottom left")}, {"BOTTOMRIGHT", L("Снизу справа", "Bottom right")}}
+    local function TextSection(prefix, titleText, y)
+        local h = content:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+        h:SetPoint("TOPLEFT", 20, y)
+        h:SetText(titleText)
+        Dropdown(L("Шрифт", "Font"), prefix .. "Font", y - 40, A.GetFonts)
+        Dropdown(L("Обводка", "Outline"), prefix .. "Outline", y - 108, function()
+            return {{"", L("Без обводки", "None")}, {"OUTLINE", L("Обычная", "Normal")},
+                {"THICKOUTLINE", L("Толстая", "Thick")}}
+        end)
+        Dropdown(L("Положение текста", "Text anchor"), prefix .. "Anchor", y - 176, function() return anchorOptions end)
+        Slider(L("Размер текста", "Text size"), prefix .. "Size", 6, 64, y - 62, 340)
+        Slider(L("Смещение текста X", "Text offset X"), prefix .. "X", -100, 100, y - 130, 340)
+        Slider(L("Смещение текста Y", "Text offset Y"), prefix .. "Y", -100, 100, y - 198, 340)
+        local color = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
+        color:SetPoint("TOPLEFT", 20, y - 244)
+        color:SetSize(230, 26)
+        color:SetText(L("Цвет текста", "Text colour"))
+        local function RefreshColor()
+            color:GetFontString():SetTextColor(db[prefix .. "R"], db[prefix .. "G"], db[prefix .. "B"])
+        end
+        color:SetScript("OnClick", function()
+            local r,g,b = db[prefix .. "R"], db[prefix .. "G"], db[prefix .. "B"]
+            local function SetColor(red, green, blue)
+                db[prefix .. "R"], db[prefix .. "G"], db[prefix .. "B"] = red, green, blue
+                RefreshColor(); A.Apply()
+            end
+            ColorPickerFrame:SetupColorPickerAndShow({r=r,g=g,b=b,hasOpacity=false,
+                swatchFunc=function() SetColor(ColorPickerFrame:GetColorRGB()) end,
+                cancelFunc=function() SetColor(r,g,b) end})
+        end)
+        refreshers[#refreshers + 1] = RefreshColor
+    end
+    Check(L("Показывать цифры кулдауна", "Show cooldown numbers"), "timerText", -714)
+    TextSection("timer", L("Текст кулдауна", "Cooldown text"), -766)
+    TextSection("label", L("Подписи ЛКМ / ПКМ", "LMB / RMB labels"), -1096)
     local function Button(text, x, action)
         local b = CreateFrame("Button", nil, content, "UIPanelButtonTemplate")
         b:SetSize(164, 26)
-        b:SetPoint("TOPLEFT", x, -710)
+        b:SetPoint("TOPLEFT", x, -1410)
         b:SetText(text)
         b:SetScript("OnClick", action)
     end
@@ -119,7 +178,7 @@ function A.CreateOptions()
         A.Apply()
     end)
     local note = content:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    note:SetPoint("TOPLEFT", 20, -754)
+    note:SetPoint("TOPLEFT", 20, -1454)
     note:SetWidth(570)
     note:SetJustifyH("LEFT")
     note:SetText(L("Пустое назначение: иконка скрыта. Макрос: сохранённая иконка.\nКулдаун: заклинания, предметы и распознанные WoW макросы.\nУмные действия EllesmereUI: только иконка, без кулдауна.\nНесколько модификаторов: оверлей скрыт. /ctco — настройки.\nEllesmereUI: UnitFrames / RaidFrames; hover-only исключены.",

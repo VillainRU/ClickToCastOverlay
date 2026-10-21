@@ -5,6 +5,16 @@ local function object()
     function o:RegisterEvent() end
     function o:CreateTexture() return object() end
     function o:CreateFontString() return object() end
+    function o:SetupMenu(init)
+        self.initialize=function()
+            init(self,{SetScrollMode=function() end,CreateRadio=function() end})
+        end
+    end
+    function o:GenerateMenu() self.initialize() end
+    function o:SetFont(path,size,flags) self.font={path,size,flags};return true end
+    function o:SetTextColor(r,g,b) self.color={r,g,b} end
+    function o:GetFontString() if not self.fontString then self.fontString=object() end;return self.fontString end
+    function o:GetCountdownFontString() return self:GetFontString() end
     function o:GetFrameLevel() return 1 end
     function o:SetDrawSwipe(v) self.drawSwipe=v end
     function o:SetCountdownFont(v) self.countdownFont=v end
@@ -62,6 +72,8 @@ function UnitCanAssist(_,unit) return unit=='friend' end
 function GetCursorPosition() return 400,300 end
 SlashCmdList={}
 Settings={RegisterCanvasLayoutCategory=function(panel) return {GetID=function() return 1 end} end, RegisterAddOnCategory=function() end,OpenToCategory=function() end}
+STANDARD_TEXT_FONT='Fonts\\FRIZQT___CYR.TTF'
+ColorPickerFrame={SetupColorPickerAndShow=function(self,config) self.config=config end,GetColorRGB=function() return .2,.4,.6 end}
 local A={}
 assert(loadfile((arg[1] or 'ClickToCastOverlay') .. '/Core.lua'))('ClickToCastOverlay',A)
 assert(loadfile((arg[1] or 'ClickToCastOverlay') .. '/Options.lua'))('ClickToCastOverlay',A)
@@ -201,3 +213,42 @@ C_Spell.GetSpellCooldown=function() return {startTime=10,duration=1.5,isOnGCD=tr
 A.UpdateCooldowns();assert(not overlay.left.cooldown.shown,'public GCD excluded')
 assert(overlay.left.cooldown.drawSwipe==true and overlay.left.cooldown.countdownFont=='GameFontNormalLarge','explicit visible swipe and font')
 print('PASS: zero recharge isolation, independent charge errors, numeric and secret paths, visible swipe/font')
+
+-- Text style applies to both engine countdowns and the independent mouse labels.
+A.db.timerFont='arial';A.db.timerSize=31;A.db.timerOutline='THICKOUTLINE'
+A.db.timerAnchor='TOPRIGHT';A.db.timerX=-8;A.db.timerY=12
+A.db.timerR=.2;A.db.timerG=.4;A.db.timerB=.6
+A.db.labelSize=14;A.db.labelAnchor='BOTTOMLEFT';A.db.labelX=5;A.db.labelY=-7
+A.Apply()
+for _, icon in ipairs({overlay.left,overlay.right}) do
+    for _, cd in ipairs({icon.cooldown,icon.chargeCooldown}) do
+        local text=cd:GetCountdownFontString()
+        assert(text.font[1]=='Fonts\\ARIALN.TTF' and text.font[2]==31 and text.font[3]=='THICKOUTLINE','countdown font settings')
+        assert(text.point[1]=='TOPRIGHT' and text.point[4]==-8 and text.point[5]==12,'countdown anchor and offsets')
+        assert(text.color[1]==.2 and text.color[2]==.4 and text.color[3]==.6,'countdown colour')
+    end
+    assert(icon.label.font[2]==14 and icon.label.point[1]=='BOTTOMLEFT' and icon.label.point[5]==-7,'independent label style')
+end
+LibStub=function() return {HashTable=function() return {['Test Font']='Interface\\AddOns\\SharedMedia\\test.ttf'} end} end
+A.db.timerFont='lsm:Test Font';A.Apply()
+assert(overlay.left.cooldown:GetCountdownFontString().font[1]=='Interface\\AddOns\\SharedMedia\\test.ttf','SharedMedia font resolved')
+LibStub=nil;A.Apply()
+assert(overlay.left.cooldown:GetCountdownFontString().font[1]==STANDARD_TEXT_FONT,'missing optional font falls back')
+local count=0
+for _, frame in ipairs(frames) do
+    if frame.initialize then frame.initialize();count=count+1 end
+    if frame.textValue=='Цвет текста' then
+        local prefix=count==3 and 'timer' or 'label'
+        local old=A.db[prefix .. 'R']
+        frame.scripts.OnClick();ColorPickerFrame.config.swatchFunc()
+        assert(A.db[prefix .. 'R']==.2,'colour preview applies')
+        ColorPickerFrame.config.cancelFunc();assert(A.db[prefix .. 'R']==old,'cancel restores colour')
+    end
+end
+assert(count==6,'font outline anchor menus for both text groups')
+ctrl=false;A.TogglePreview()
+-- Previous preview state may be on already: toggle if needed.
+if not overlay.left.sample then A.TogglePreview() end
+assert(overlay.left.sample and overlay.left.previewText.shown,'style preview has example countdown')
+A.db.timerText=false;A.Apply();assert(not overlay.left.previewText.shown,'countdown number toggle hides preview text')
+print('PASS: text fonts, sizes, outlines, nine anchors, offsets, colours/cancel, SharedMedia fallback and preview')

@@ -66,7 +66,7 @@ Cooldowns are available for explicit spell/item assignments and saved macros who
 
 The supplied screenshots show the settings panel and overlay in-game with Blizzard bindings. Automated Lua checks cover both source adapters and display logic. Combat behavior and the EllesmereUI binding source still need in-game validation; please report issues with the source, display mode, game version, and full Lua error when available.
 
-**Games:** World of Warcraft Retail and WoW Forever 1.60.1. Download the file for your game: Retail 1.2.1 or Forever 1.2.1-forever (Interface 16001). Other Classic editions are not supported.
+**Games:** World of Warcraft Retail and WoW Forever 1.60.1. Download the file for your game: Retail 1.3.0 or Forever 1.3.0-forever (Interface 16001). Other Classic editions are not supported.
 
 The Forever package has been checked against the Forever API source and automated Lua tests; in-game Forever and combat validation are still pending.
 
@@ -85,6 +85,10 @@ luajit tests/test_addon.lua dist/retail/ClickToCastOverlay
 luajit tests/test_addon.lua dist/forever/ClickToCastOverlay
 ```
 
-Builds use the same Core.lua and Options.lua. Only the Interface/version metadata differs: Retail 120105 / 1.2.1; Forever 16001 / 1.2.1-forever. Build outputs are in dist/ and are not committed. Tests emulate WoW APIs; they do not replace in-game testing.
+Builds use the same Core.lua and Options.lua. Only the Interface/version metadata differs: Retail 120105 / 1.3.0; Forever 16001 / 1.3.0-forever. Build outputs are in dist/ and are not committed. Tests emulate WoW APIs; they do not replace in-game testing.
 
 [Русская инструкция](docs/README-ruRU.md)
+
+## Text appearance
+
+Open `/ctco` and scroll to Cooldown text or LMB / RMB labels. Each group has font, size, outline, colour, anchor and X/Y offsets. SharedMedia fonts are optional. Toggle preview to see sample countdown text.

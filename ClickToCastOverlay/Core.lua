@@ -4,6 +4,37 @@ local RU = GetLocale() == "ruRU"
 A.RU = RU
 A.defaults = { enabled = true, source = "blizzard", mode = "window", size = 38, gap = 6,
     offsetX = 24, offsetY = 20, x = 0, y = -160, labels = true, locked = true, cooldowns = true }
+-- Flat, scalar settings keep migrations and reset independent of shared tables.
+for _, prefix in ipairs({"timer", "label"}) do
+    A.defaults[prefix .. "Font"] = "default"
+    A.defaults[prefix .. "Size"] = prefix == "timer" and 20 or 10
+    A.defaults[prefix .. "Outline"] = "OUTLINE"
+    A.defaults[prefix .. "Anchor"] = prefix == "timer" and "CENTER" or "BOTTOM"
+    A.defaults[prefix .. "X"] = 0
+    A.defaults[prefix .. "Y"] = prefix == "timer" and 0 or 2
+    A.defaults[prefix .. "R"] = 1
+    A.defaults[prefix .. "G"] = 1
+    A.defaults[prefix .. "B"] = 1
+end
+A.defaults.timerText = true
+
+function A.GetFonts()
+    local fonts = {{"default", "Blizzard", STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"},
+        {"arial", "Arial", "Fonts\\ARIALN.TTF"}, {"morpheus", "Morpheus", "Fonts\\MORPHEUS.TTF"},
+        {"skurri", "Skurri", "Fonts\\SKURRI.TTF"}}
+    local media = LibStub and LibStub("LibSharedMedia-3.0", true)
+    if media then
+        local registered = media:HashTable("font") or {}
+        local names = {}
+        for name in pairs(registered) do names[#names + 1] = name end
+        table.sort(names)
+        for _, name in ipairs(names) do fonts[#fonts + 1] = {"lsm:" .. name, name, registered[name]} end
+    end
+    return fonts
+end
+local anchors = {CENTER=true,TOP=true,BOTTOM=true,LEFT=true,RIGHT=true,
+    TOPLEFT=true,TOPRIGHT=true,BOTTOMLEFT=true,BOTTOMRIGHT=true}
+local outlines = {[""]=true,OUTLINE=true,THICKOUTLINE=true}
 local db, overlay, mover
 local bindings = {}
 local elapsed, profileElapsed, cooldownElapsed = 0, 0, 0
@@ -12,6 +43,20 @@ local activeKey
 local function Public(value)
     return not (issecretvalue and issecretvalue(value))
 end
+local function StyleText(text, prefix, parent)
+    if not text then return end
+    local path = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+    for _, font in ipairs(A.GetFonts()) do
+        if font[1] == db[prefix .. "Font"] then path = font[3]; break end
+    end
+    if not text:SetFont(path, db[prefix .. "Size"], db[prefix .. "Outline"]) then
+        text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", db[prefix .. "Size"], db[prefix .. "Outline"])
+    end
+    text:SetTextColor(db[prefix .. "R"], db[prefix .. "G"], db[prefix .. "B"])
+    text:ClearAllPoints()
+    text:SetPoint(db[prefix .. "Anchor"], parent, db[prefix .. "Anchor"], db[prefix .. "X"], db[prefix .. "Y"])
+end
+
 local function Say(text)
     print("|cff59d9ffClick to cast overlay:|r " .. text)
 end
@@ -115,6 +160,7 @@ end
 local function SetIcon(icon, entry, sample)
     local texture = sample or IconFor(entry)
     icon.entry = entry
+    icon.sample = sample ~= nil
     icon.texture:SetTexture(texture)
     icon:SetShown(texture ~= nil)
     icon.texture:SetDesaturated(not texture)
@@ -194,6 +240,7 @@ local function SetSpellTimer(cd, spell, charges)
 end
 
 local function UpdateCooldown(icon)
+    icon.previewText:SetShown(icon.sample and db.cooldowns and db.timerText)
     if not db.cooldowns or not icon.entry or not icon:IsShown() then
         ClearTimer(icon.cooldown); ClearTimer(icon.chargeCooldown); return
     end
@@ -224,7 +271,7 @@ local function UpdateCooldown(icon)
 end
 
 function A.CooldownDebug()
-    Say("1.2.1 / " .. db.source .. " / cooldowns=" .. tostring(db.cooldowns))
+    Say("1.3.0 / " .. db.source .. " / cooldowns=" .. tostring(db.cooldowns))
     for _, name in ipairs({"left", "right"}) do
         local icon = overlay[name]
         Say(name .. ": action=" .. tostring(icon.cooldownAction) .. ", path=" .. tostring(icon.cooldownStatus)
@@ -264,6 +311,9 @@ local function MakeIcon(parent, label)
         cd:SetCountdownFont("GameFontNormalLarge")
         cd:Hide()
     end
+    frame.previewText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    frame.previewText:SetText("24")
+    frame.previewText:Hide()
     frame.empty = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     frame.empty:SetPoint("CENTER")
     frame.empty:SetText("—")
@@ -345,6 +395,12 @@ function A.Apply()
     for _, icon in ipairs({ overlay.left, overlay.right }) do
         icon:SetSize(db.size, db.size)
         icon.label:SetShown(db.labels)
+        StyleText(icon.label, "label", icon)
+        StyleText(icon.previewText, "timer", icon)
+        for _, cd in ipairs({icon.cooldown, icon.chargeCooldown}) do
+            cd:SetHideCountdownNumbers(not db.timerText)
+            StyleText(cd:GetCountdownFontString(), "timer", icon)
+        end
     end
     overlay.left:SetPoint("LEFT")
     overlay.right:SetPoint("RIGHT")
@@ -377,6 +433,15 @@ driver:SetScript("OnEvent", function(_, event, name)
         for key, limits in pairs({ size = {20, 80}, gap = {0, 30}, offsetX = {-300, 300}, offsetY = {-300, 300}, x = {-5000, 5000}, y = {-5000, 5000} }) do
             if db[key] ~= db[key] then db[key] = A.defaults[key] end
             db[key] = math.max(limits[1], math.min(limits[2], db[key]))
+        end
+        for _, prefix in ipairs({"timer", "label"}) do
+            if not anchors[db[prefix .. "Anchor"]] then db[prefix .. "Anchor"] = A.defaults[prefix .. "Anchor"] end
+            if not outlines[db[prefix .. "Outline"]] then db[prefix .. "Outline"] = "OUTLINE" end
+            for key, range in pairs({Size={6,64},X={-100,100},Y={-100,100},R={0,1},G={0,1},B={0,1}}) do
+                local k = prefix .. key
+                if db[k] ~= db[k] then db[k] = A.defaults[k] end
+                db[k] = math.max(range[1], math.min(range[2], db[k]))
+            end
         end
         A.db = db
         overlay = CreateFrame("Frame", "ClickToCastOverlayDisplay", UIParent)
